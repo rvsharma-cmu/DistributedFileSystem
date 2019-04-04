@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry excluding="fuse/|fuse/java/src/" kind="src" path=""/>
+	<classpathentry excluding="java/src/" kind="src" path="fuse"/>
+	<classpathentry kind="src" path="fuse/java/src"/>
+	<classpathentry kind="lib" path="/Users/raghavs/14736/Project3/staff-rmi/reference-rmi.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

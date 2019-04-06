@@ -3,6 +3,8 @@ package naming;
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 
 import rmi.*;
 import common.*;
@@ -33,6 +35,16 @@ import storage.*;
  */
 public class NamingServer implements Service, Registration
 {
+	
+	private ArrayList<StorageInfo> storageServers; 
+	
+	private Map<Path, Paths> fileDirectory; 
+	
+	private Skeleton<Service> serviceSkeleton; 
+	private Skeleton<Registration> registrationSkeleton; 
+	
+	private Map<Storage, Command> storageConnections; 
+	
     /** Creates the naming server object.
 
         <p>
@@ -40,7 +52,12 @@ public class NamingServer implements Service, Registration
      */
     public NamingServer()
     {
-        throw new UnsupportedOperationException("not implemented");
+    	boolean value = false; 
+    	
+    	storageServers = new ArrayList<StorageInfo>(); 
+    	fileDirectory = new ConcurrentHashMap<Path, Paths>(); 
+    	storageConnections = new ConcurrentHashMap<Storage, Command>(); 
+    	fileDirectory.put(new Path(), new Paths(value));
     }
 
     /** Starts the naming server.
@@ -56,7 +73,15 @@ public class NamingServer implements Service, Registration
      */
     public synchronized void start() throws RMIException
     {
-        throw new UnsupportedOperationException("not implemented");
+        // throw new UnsupportedOperationException("not implemented");
+    	InetSocketAddress registrationAddress = new InetSocketAddress(NamingStubs.REGISTRATION_PORT);
+    	InetSocketAddress serviceAddress = new InetSocketAddress(NamingStubs.SERVICE_PORT);
+    	
+    	registrationSkeleton = new Skeleton<Registration>(Registration.class, this, registrationAddress);
+    	serviceSkeleton = new Skeleton<Service>(Service.class, this, serviceAddress);
+    	
+    	registrationSkeleton.start();
+    	serviceSkeleton.start();
     }
 
     /** Stops the naming server.
@@ -70,7 +95,12 @@ public class NamingServer implements Service, Registration
      */
     public void stop()
     {
-        throw new UnsupportedOperationException("not implemented");
+        // throw new UnsupportedOperationException("not implemented");
+    	
+    	serviceSkeleton.stop();
+    	registrationSkeleton.stop();
+    	stopped(null);
+    	
     }
 
     /** Indicates that the server has completely shut down.
@@ -90,50 +120,177 @@ public class NamingServer implements Service, Registration
     @Override
     public void lock(Path path, boolean exclusive) throws FileNotFoundException
     {
-        throw new UnsupportedOperationException("not implemented");
+        //throw new UnsupportedOperationException("not implemented");
     }
 
     @Override
     public void unlock(Path path, boolean exclusive)
     {
-        throw new UnsupportedOperationException("not implemented");
+        //throw new UnsupportedOperationException("not implemented");
     }
 
     @Override
     public boolean isDirectory(Path path) throws FileNotFoundException
     {
-        throw new UnsupportedOperationException("not implemented");
+        // throw new UnsupportedOperationException("not implemented");
+    	if(fileDirectory.containsKey(path)) {
+    		return !fileDirectory.get(path).flag;
+    	} else {
+    		throw new FileNotFoundException();
+    	}
     }
 
     @Override
     public String[] list(Path directory) throws FileNotFoundException
     {
-        throw new UnsupportedOperationException("not implemented");
+        // throw new UnsupportedOperationException("not implemented");
+    	
+    	if(!fileDirectory.containsKey(directory) || fileDirectory.get(directory).flag)
+    		throw new FileNotFoundException();
+    	
+    	int index = 0; 
+    	HashSet<Path> children = fileDirectory.get(directory).decPaths; 
+    	
+    	String[] output = new String[children.size()]; 
+    	for(Path p: children) {
+    		output[index++] = p.last();
+    	}
+    	
+    	return output; 
     }
 
     @Override
     public boolean createFile(Path file)
         throws RMIException, FileNotFoundException
     {
-        throw new UnsupportedOperationException("not implemented");
+        // throw new UnsupportedOperationException("not implemented");
+
+    	if(!fileDirectory.containsKey(file.parent()) || fileDirectory.get(file).flag) { 
+    		throw new FileNotFoundException(); 
+    	}
+    	
+    	if(storageConnections.isEmpty())
+    		throw new IllegalStateException();
+    	
+    	if(fileDirectory.containsKey(file))
+    		return false; 
+    	
+    	int index = ThreadLocalRandom.current().nextInt(storageServers.size());
+    	Storage storage = storageServers.get(index).storageStub;
+    	Command command = storageConnections.get(storage);
+    	if(command.create(file)) {
+    		fileDirectory.put(file, new Paths(true));
+    		StorageInfo storageInfo = new StorageInfo(storage, command);
+    		
+    		fileDirectory.get(file).storageServers.add(storageInfo);
+    		addParentToStorage(file, storageInfo);
+    		return true; 
+    	} else 
+    		return false; 	
     }
 
-    @Override
+    private void addParentToStorage(Path file, StorageInfo storageInfo) {
+		
+    	Path path = file.parent(); 
+    	
+    	while(! path.isRoot()) {
+    		path = file.parent();
+    		if(! fileDirectory.containsKey(path))
+    			fileDirectory.put(path, new Paths(false));
+    		fileDirectory.get(path).decPaths.add(file);
+    		fileDirectory.get(path).storageServers.add(storageInfo);
+    		file = path;
+    	} 
+	}
+
+	@Override
     public boolean createDirectory(Path directory) throws FileNotFoundException
     {
-        throw new UnsupportedOperationException("not implemented");
+        // throw new UnsupportedOperationException("not implemented");
+		
+		if(fileDirectory.containsKey(directory))
+			return false; 
+		
+		Path p = directory.parent(); 
+		if(!this.fileDirectory.containsKey(p) || 
+				fileDirectory.get(p).flag )
+			throw new FileNotFoundException();
+		
+		fileDirectory.put(directory, new Paths(false));
+		
+		addParentPath(directory);
+		return true; 
     }
 
-    @Override
+    private void addParentPath(Path directory) {
+		
+    	Path path = directory.parent(); 
+    	
+    	while(! path.isRoot()) {
+    		if(! fileDirectory.containsKey(path)) {
+    			fileDirectory.put(path, new Paths(false));
+    			
+    		} else {
+    			fileDirectory.get(path).decPaths.add(directory); 
+    			break; 
+    		}
+    		fileDirectory.get(path).decPaths.add(directory);
+    		directory = path; 
+    	}
+		
+	}
+
+	@Override
     public boolean delete(Path path) throws FileNotFoundException
     {
-        throw new UnsupportedOperationException("not implemented");
+        //throw new UnsupportedOperationException("not implemented");
+		
+		if(! this.fileDirectory.containsKey(path.parent()) || 
+				! this.fileDirectory.containsKey(path))
+			throw new FileNotFoundException();
+		Paths paths = fileDirectory.get(path);
+		Path parentPath = path.parent();
+		HashSet<StorageInfo> storageInfo = fileDirectory.get(path).storageServers;
+		
+		for(StorageInfo storage : storageInfo) {
+			
+			try {
+				if(storage.commandStub.delete(path))
+					continue; 
+				else 
+					return false;
+			} catch (RMIException e) {
+				// TODO Auto-generated catch block
+				System.out.println("Call cannot be completed due to a network error ");
+				e.printStackTrace();
+			} 
+		}
+		fileDirectory.remove(path);
+		fileDirectory.get(parentPath).decPaths.remove(path);
+		return true;
     }
 
     @Override
     public Storage getStorage(Path file) throws FileNotFoundException
     {
-        throw new UnsupportedOperationException("not implemented");
+        // throw new UnsupportedOperationException("not implemented");
+    	
+    	if(! this.fileDirectory.containsKey(file) || 
+    			! this.fileDirectory.get(file).flag) {
+    		throw new FileNotFoundException();
+    	}
+    	
+    	HashSet<StorageInfo> storageConn = fileDirectory.get(file).storageServers;
+    	
+    	Iterator<StorageInfo> i = storageConn.iterator();
+    	
+    	int index = ThreadLocalRandom.current().nextInt(storageConn.size());
+    	while(index > 0) {
+    		i.next();
+    		index--;
+    	}
+    	
+    	return i.next().storageStub;
     }
 
     // The method register is documented in Registration.java.
@@ -141,6 +298,66 @@ public class NamingServer implements Service, Registration
     public Path[] register(Storage client_stub, Command command_stub,
                            Path[] files)
     {
-        throw new UnsupportedOperationException("not implemented");
+        // throw new UnsupportedOperationException("not implemented");
+    	
+    	if(files == null || client_stub == null || command_stub == null) {
+    		throw new NullPointerException();
+    	}
+    	
+    	if(storageConnections.containsKey(client_stub))
+    		throw new IllegalStateException();
+    	Path[] output = null; 
+    	StorageInfo storage = new StorageInfo(client_stub, command_stub);
+    	storageConnections.put(client_stub, command_stub);
+    	storageServers.add(storage);
+    	
+    	List<Path> fileNames = new ArrayList<>(); 
+    	
+    	for(Path eachPath : files) {
+    		
+    		if(!eachPath.isRoot()) {
+    			
+    			if(! fileDirectory.containsKey(eachPath)) {
+    				fileDirectory.put(eachPath, new Paths(true));
+    				fileDirectory.get(eachPath).storageServers.add(storage);
+    				addParentToStorage(eachPath, storage);
+    				
+    			} else {
+    				fileNames.add(eachPath);
+    			}
+    		}
+    	}
+    	output = new Path[fileNames.size()];
+    	
+    	return fileNames.toArray(output);  
+    }
+    
+    private class Paths {
+    	
+    	HashSet<StorageInfo> storageServers;  
+    	HashSet<Path> decPaths; 
+    	int numberOfReads; 
+    	
+    	boolean flag; 
+    	
+    	public Paths(boolean value) {
+    		flag = value; 
+    		numberOfReads = 0; 
+    		decPaths = new HashSet<Path>(); 
+    		storageServers = new HashSet<StorageInfo>(); 
+    	}
+    	
+    }
+    
+    private class StorageInfo {
+    	
+    	Command commandStub; 
+    	Storage storageStub; 
+    	
+    	public StorageInfo(Storage storage, Command command) {
+    		commandStub = command; 
+    		storageStub = storage; 
+    	}
+    	
     }
 }

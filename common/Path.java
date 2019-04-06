@@ -239,10 +239,16 @@ public class Path implements Iterable<String>, Comparable<Path>, Serializable {
 		if(other.pathList.size() > this.pathList.size())
 			return false; 
 		
-		int i = 0; 
-		for(String paths : pathList) {
-			if(!paths.equals(other.pathList.get(i++)))
-				return false; 	
+		int index = 0; 
+		while(index < other.pathList.size()) {
+			
+			if(other.pathList.get(index).equals(pathList.get(index))) {
+				index++;
+				continue;
+			}
+			else 
+				return false; 
+			
 		}
 		return true; 
 	}

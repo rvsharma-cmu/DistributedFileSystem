@@ -4,6 +4,6 @@
 	<classpathentry excluding="fuse/|fuse/java/src/" kind="src" path=""/>
 	<classpathentry excluding="java/src/" kind="src" path="fuse"/>
 	<classpathentry kind="src" path="fuse/java/src"/>
-	<classpathentry kind="lib" path="/Users/raghavs/14736/Project3/staff-rmi/reference-rmi.jar"/>
+	<classpathentry kind="lib" path="/Users/raghavs/14736/Project3/project3/DistributedFileSystem/reference-rmi.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

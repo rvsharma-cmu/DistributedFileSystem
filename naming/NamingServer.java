@@ -164,16 +164,25 @@ public class NamingServer implements Service, Registration
         throws RMIException, FileNotFoundException
     {
         // throw new UnsupportedOperationException("not implemented");
-
-    	if(!fileDirectory.containsKey(file.parent()) || fileDirectory.get(file).flag) { 
-    		throw new FileNotFoundException(); 
+    	if(file==null)
+    		throw new NullPointerException("Argements are null");
+    	if(!file.isRoot())
+    	{
+	    	Path parentFile = file.parent();
+	    	if(fileDirectory.containsKey(file))
+	    		return false; 
+	    	if(!fileDirectory.containsKey(parentFile))
+	    			throw new FileNotFoundException(); 
+	    	if(fileDirectory.get(parentFile).flag) { 
+	    		throw new FileNotFoundException(); 
+	    	}
     	}
-    	
+    	else 
+    		return false;
     	if(storageConnections.isEmpty())
     		throw new IllegalStateException();
     	
-    	if(fileDirectory.containsKey(file))
-    		return false; 
+    	
     	
     	int index = ThreadLocalRandom.current().nextInt(storageServers.size());
     	Storage storage = storageServers.get(index).storageStub;

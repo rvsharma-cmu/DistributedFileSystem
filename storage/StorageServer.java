@@ -314,27 +314,29 @@ public class StorageServer implements Storage, Command {
         	return false; 
         }
         
-        if(file.isFile()) {
-        	file.delete();
-        }
+       
         boolean deleted = false; 
         if(file.isDirectory()) {
         	
-        	if(file.list().length == 0)
-        		file.delete();
-        	else {
+        	if(file.list().length != 0)
+        	{
 	        	String[] files = file.list();
 	        	for(String pathName : files) {
 	        		if(this.delete(new Path(path, pathName)));
 	        			deleted = true;
 	        	}
-	        	if(file.list().length == 0)
-	        		file.delete();
+	        	
+        	}
+        	if(file.list().length == 0) 
+        	{
+        		file.delete();
+        		deleted = true;
         	}
         }
         else
         {
         	file.delete();
+        	deleted = true;
         }
         	
         	

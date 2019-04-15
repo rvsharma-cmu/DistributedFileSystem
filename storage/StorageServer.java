@@ -155,6 +155,7 @@ public class StorageServer implements Storage, Command {
      */
     protected void stopped(Throwable cause)
     {
+    	//do nothing!
     }
 
     // The following methods are documented in Storage.java.
@@ -221,9 +222,8 @@ public class StorageServer implements Storage, Command {
     }
 
     @Override
-    public synchronized void write(Path file, long offset, byte[] data) {
-        // throws FileNotFoundException, IOException
-    
+    public synchronized void write(Path file, long offset, byte[] data) throws FileNotFoundException, IOException
+    {
     	File fileName = file.toFile(root);
     	if(data == null)
     		throw new NullPointerException(); 
@@ -232,12 +232,7 @@ public class StorageServer implements Storage, Command {
     		throw new IndexOutOfBoundsException();
     	
     	if(! fileCheck(fileName))
-			try {
 				throw new FileNotFoundException("file was not found");
-			} catch (FileNotFoundException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
     	boolean append = false; 
     	FileOutputStream outputStream = null; 
     	
@@ -246,7 +241,7 @@ public class StorageServer implements Storage, Command {
 			
 			if(size >= offset) {
 				
-				outputStream = new FileOutputStream(fileName, append);
+				outputStream = new FileOutputStream(fileName);
 				outputStream.write(data, (int)offset, data.length);
 				
 			} else {
@@ -306,7 +301,9 @@ public class StorageServer implements Storage, Command {
     @Override
     public synchronized boolean delete(Path path)
     {
-        if(path == null || path.isRoot())
+        if(path == null)
+        	throw new NullPointerException("Path is null");
+        if(path.isRoot())
         	return false; 
         
         File file = path.toFile(root);
@@ -335,6 +332,11 @@ public class StorageServer implements Storage, Command {
 	        		file.delete();
         	}
         }
+        else
+        {
+        	file.delete();
+        }
+        	
         	
         return deleted; 
     }

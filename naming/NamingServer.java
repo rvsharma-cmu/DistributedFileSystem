@@ -136,7 +136,7 @@ public class NamingServer implements Service, Registration
     	if(fileDirectory.containsKey(path)) {
     		return !fileDirectory.get(path).flag;
     	} else {
-    		throw new FileNotFoundException();
+    		throw new FileNotFoundException("File not found exception");
     	}
     }
 
@@ -191,16 +191,18 @@ public class NamingServer implements Service, Registration
 
     private void addParentToStorage(Path file, StorageInfo storageInfo) {
 		
+    	if(file == null)
+    		throw new NullPointerException();
     	Path path = file.parent(); 
     	
-    	while(! path.isRoot()) {
+    	do {
     		path = file.parent();
     		if(! fileDirectory.containsKey(path))
     			fileDirectory.put(path, new Paths(false));
     		fileDirectory.get(path).decPaths.add(file);
     		fileDirectory.get(path).storageServers.add(storageInfo);
     		file = path;
-    	} 
+    	} while(! path.isRoot());
 	}
 
 	@Override
@@ -226,7 +228,7 @@ public class NamingServer implements Service, Registration
 		
     	Path path = directory.parent(); 
     	
-    	while(! path.isRoot()) {
+    	do {
     		if(! fileDirectory.containsKey(path)) {
     			fileDirectory.put(path, new Paths(false));
     			
@@ -236,7 +238,7 @@ public class NamingServer implements Service, Registration
     		}
     		fileDirectory.get(path).decPaths.add(directory);
     		directory = path; 
-    	}
+    	}while(! path.isRoot());
 		
 	}
 
@@ -244,7 +246,8 @@ public class NamingServer implements Service, Registration
     public boolean delete(Path path) throws FileNotFoundException
     {
         //throw new UnsupportedOperationException("not implemented");
-		
+		if(path == null)
+			throw new NullPointerException("Path is null");
 		if(! this.fileDirectory.containsKey(path.parent()) || 
 				! this.fileDirectory.containsKey(path))
 			throw new FileNotFoundException();
